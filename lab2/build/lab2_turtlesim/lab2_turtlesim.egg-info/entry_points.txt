@@ -1,3 +1,0 @@
-[console_scripts]
-turtle_controller = lab2_turtlesim.turtle_controller:main
-

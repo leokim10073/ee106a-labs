@@ -1,0 +1,19 @@
+Checkpoint 1
+
+colcon build --packages-select lab2_turtlesim
+ros2 run turtlesim turtlesim_node
+ros2 service call /spawn turtlesim/srv/Spawn "{x: 2.0, y: 2.0, theta: 0.0, name: 'turtle2'}"
+ros2 run lab2_turtlesim turtle_controller turtle1
+ros2 run lab2_turtlesim turtle_controller turtle2
+
+Checkpoint 2
+ros2 run turtlesim turtlesim_node
+ros2 service call /spawn turtlesim/srv/Spawn "{x: 2.0, y: 2.0, theta: 0.0, name: 'turtle2'}"
+ros2 run turtle_patrol multi_patrol_server
+ros2 run turtle_patrol multi_patrol_client turtle1 3.0 3.0 0.8 0.3 0.5
+ros2 run turtle_patrol multi_patrol_client turtle2 7.0 7.0 0.0 -0.3 0.5
+ros2 service call /turtle_patrol turtle_patrol_interface/srv/Patrol "{turtle_name: 'turtle1', x: 5.0, y: 5.0, theta: 1.57, vel: 1.0, omega: -1.0}"
+
+ros2 service list
+ros2 service type
+ros2 interface show 

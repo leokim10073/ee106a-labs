@@ -1,0 +1,48 @@
+# ROS 2 colcon build artifacts
+build/
+install/
+log/
+
+# Python cache & compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Distribution / packaging
+.eggs/
+*.egg-info/
+*.egg
+dist/
+eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+develop-eggs/
+.installed.cfg
+
+# Environments (venv / conda)
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE & Editor configs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Test & coverage
+.pytest_cache/
+.coverage
+htmlcov/
