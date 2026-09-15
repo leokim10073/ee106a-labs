@@ -1,0 +1,78 @@
+<?xml version="1.0"?>
+
+<!--
+Lab-specific flattened kinematic description of the UR7e.
+
+This file is derived from the UR7e robot description. Unlike a standard
+URDF, the origin and axis for each revolute joint have already been
+expressed in the base_link frame.
+
+This simplification is used only for the forward kinematics exercise.
+-->
+
+<robot name="ur7e_flattened">
+
+    <link name="base_link"/>
+    <link name="shoulder_link"/>
+    <link name="upper_arm_link"/>
+    <link name="forearm_link"/>
+    <link name="wrist_1_link"/>
+    <link name="wrist_2_link"/>
+    <link name="wrist_3_link"/>
+
+    <joint name="shoulder_pan_joint" type="revolute">
+        <parent link="base_link"/>
+        <child link="shoulder_link"/>
+        <origin xyz="0.0 0.0 0.1625"/>
+        <axis xyz="0.0 0.0 1.0"/>
+    </joint>
+
+    <joint name="shoulder_lift_joint" type="revolute">
+        <parent link="shoulder_link"/>
+        <child link="upper_arm_link"/>
+        <origin xyz="0.0 0.0 0.1625"/>
+        <axis xyz="0.0 1.0 0.0"/>
+    </joint>
+
+    <joint name="elbow_joint" type="revolute">
+        <parent link="upper_arm_link"/>
+        <child link="forearm_link"/>
+        <origin xyz="0.425 0.0 0.1625"/>
+        <axis xyz="0.0 1.0 0.0"/>
+    </joint>
+
+    <joint name="wrist_1_joint" type="revolute">
+        <parent link="forearm_link"/>
+        <child link="wrist_1_link"/>
+        <origin xyz="0.817 0.1333 0.1625"/>
+        <axis xyz="0.0 1.0 0.0"/>
+    </joint>
+
+    <joint name="wrist_2_joint" type="revolute">
+        <parent link="wrist_1_link"/>
+        <child link="wrist_2_link"/>
+        <origin xyz="0.817 0.1333 0.06285"/>
+        <axis xyz="0.0 0.0 -1.0"/>
+    </joint>
+
+    <joint name="wrist_3_joint" type="revolute">
+        <parent link="wrist_2_link"/>
+        <child link="wrist_3_link"/>
+        <origin xyz="0.817 0.233 0.06285"/>
+        <axis xyz="0.0 1.0 0.0"/>
+    </joint>
+
+    <zero_configuration
+        base="base_link"
+        tip="wrist_3_link">
+
+        <rotation>
+            <row values="-1.0 0.0 0.0"/>
+            <row values="0.0 0.0 1.0"/>
+            <row values="0.0 1.0 0.0"/>
+        </rotation>
+
+        <translation xyz="0.817 0.233 0.06285"/>
+    </zero_configuration>
+
+</robot>

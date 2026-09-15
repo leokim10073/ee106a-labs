@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>straight_line</name>
+  <version>0.0.0</version>
+  <description>Action server that moves the UR7e in a straight line using MoveIt.</description>
+  <maintainer email="reid@xz.ax">ee106a-tae</maintainer>
+  <license>Apache-2.0</license>
+
+  <depend>rclpy</depend>
+  <depend>moveit_msgs</depend>
+  <depend>control_msgs</depend>
+  <depend>trajectory_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>tf2_ros</depend>
+  <depend>controller_manager_msgs</depend>
+  <depend>straight_line_interface</depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

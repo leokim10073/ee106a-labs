@@ -1,0 +1,13 @@
+# Goal
+geometry_msgs/Pose target
+float64 max_step
+---
+# Result
+bool success
+float64 planned_fraction
+float64 dist_to_go
+string message
+---
+# Feedback
+float64 planned_fraction
+string state
