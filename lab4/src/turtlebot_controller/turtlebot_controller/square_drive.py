@@ -7,9 +7,9 @@ from rclpy.node import Node
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 
-SIDE =    # meters
-V =     # m/s 
-W =       # rad/s 
+SIDE = 1.0            # meters, length of each side of the square
+V = 0.2               # m/s, comfortably under the 0.22 m/s TurtleBot3 cap
+W = math.pi / 4       # rad/s, chosen so a 90 deg turn takes exactly 2.0 s
 
 
 def quaternion_to_yaw(q):
@@ -21,6 +21,7 @@ class SquareDrive(Node):
     def __init__(self):
         super().__init__('square_drive')
 
+        self.cmd_pub = self.create_publisher(Twist, 'cmd_vel', 10)
 
         # odom is watched, never used to steer. Do not touch just observe
         self.create_subscription(Odometry, 'odom', self.on_odom, 10)
@@ -34,8 +35,32 @@ class SquareDrive(Node):
             rclpy.spin_once(self, timeout_sec=0.05)
 
     def drive(self):
-        # TODO: Drive around the square. 
-        raise NotImplementedError
+        # Open-loop: we compute how long each segment should take from the
+        # commanded speed and the desired distance/angle, then just wait
+        # that long. No odom feedback is read here at all.
+        straight = Twist()
+        straight.linear.x = V
+
+        turn = Twist()
+        turn.angular.z = W
+
+        drive_time = SIDE / V
+        turn_time = (math.pi / 2) / W
+
+        for side in range(4):
+            self.get_logger().info(
+                f'side {side + 1}/4: driving straight {SIDE:.2f} m '
+                f'({drive_time:.2f} s @ {V:.2f} m/s)')
+            self.cmd_pub.publish(straight)
+            self.spin_for(drive_time)
+
+            self.get_logger().info(
+                f'side {side + 1}/4: turning 90 deg '
+                f'({turn_time:.2f} s @ {math.degrees(W):.1f} deg/s)')
+            self.cmd_pub.publish(turn)
+            self.spin_for(turn_time)
+
+        self.cmd_pub.publish(Twist())
 
 # -----------------------------------------#
     def on_odom(self, msg):
@@ -71,7 +96,7 @@ def main():
     node.spin_for(1.0)   # let the first odom message land before we move
 
     try:
-        # TODO
+        node.drive()
     except KeyboardInterrupt:
         pass
     finally:
