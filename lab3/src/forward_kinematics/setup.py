@@ -32,6 +32,8 @@ setup(
         ],
     },
     entry_points={
-        "console_scripts": [],
+        "console_scripts": [
+            'forward_kinematics_node = forward_kinematics.forward_kinematics_node:main',
+        ],
     },
 )

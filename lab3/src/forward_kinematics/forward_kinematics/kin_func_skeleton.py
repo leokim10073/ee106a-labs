@@ -8,7 +8,7 @@ Adapted for Fall 2020 by: Amay Saxena, 9/10/20
 Adapted for Fall 2026 by: Sebastian Vargas and Valmik Prabhu
 
 This Python file is a code skeleton for HW2. You should fill in
-the body of the eight empty methods below so that they implement the kinematic
+the body of the nine empty methods below so that they implement the kinematic
 functions described in the assignment.
 
 When you think you have the methods implemented correctly, you can test your
@@ -117,7 +117,12 @@ def R3_to_so3(omega):
     """
 
     # YOUR CODE HERE
-
+    w = np.asarray(omega).flatten()
+    return np.array([
+        [0.0, -w[2], w[1]],
+        [w[2], 0.0, -w[0]],
+        [-w[1], w[0], 0.0]
+    ])
 
 def so3_to_R3(omega_hat):
     """
@@ -132,8 +137,7 @@ def so3_to_R3(omega_hat):
     """
     # Check that the input is skew-symmetric.
     assert np.allclose(omega_hat, -omega_hat.T)
-
-    # YOUR CODE HERE
+    return np.array([omega_hat[2, 1], omega_hat[0, 2], omega_hat[1, 0]])
 
 
 def axis_angle_to_SO3(omega, theta):
@@ -152,7 +156,18 @@ def axis_angle_to_SO3(omega, theta):
     """
 
     # YOUR CODE HERE
+    w = np.asarray(omega).flatten()
+    norm_w = np.linalg.norm(w)
 
+    if np.isclose(norm_w, 0.0):
+        return np.eye(3)
+
+    w_unit = w / norm_w
+    w_hat = R3_to_so3(w_unit)
+    theta_total = norm_w * theta
+    # Rodrigues' formula: R = I + w_hat * sin(theta) + (w_hat^2) * (1 - cos(theta))
+    R = np.eye(3) + w_hat * np.sin(theta_total) + (w_hat @ w_hat) * (1.0 - np.cos(theta_total))
+    return R
 
 def so3_to_SO3(omega_hat, theta=1):
     """
@@ -170,6 +185,13 @@ def so3_to_SO3(omega_hat, theta=1):
     """
 
     # YOUR CODE HERE
+    omega = so3_to_R3(omega_hat)
+    norm_w = np.linalg.norm(omega)
+
+    if np.isclose(norm_w, 0.0):
+        return np.eye(3)
+
+    return axis_angle_to_SO3(omega / norm_w, norm_w * theta)
 
 
 def twist_to_se3(xi, theta=1):
@@ -187,7 +209,14 @@ def twist_to_se3(xi, theta=1):
     """
 
     # YOUR CODE HERE
+    xi_scaled = np.asarray(xi).flatten() * theta
+    v = xi_scaled[:3]
+    w = xi_scaled[3:]
 
+    xi_hat = np.zeros((4, 4))
+    xi_hat[:3, :3] = R3_to_so3(w)
+    xi_hat[:3, 3] = v
+    return xi_hat
 
 
 def se3_to_twist(xi_hat):
@@ -202,9 +231,12 @@ def se3_to_twist(xi_hat):
     """
 
     # YOUR CODE HERE
+    v = xi_hat[:3, 3]
+    w = so3_to_R3(xi_hat[:3, :3])
+    return np.concatenate([v, w])
 
 
-def twist_to_SE3(xi, theta = 1)
+def twist_to_SE3(xi, theta = 1):
     """
     Converts a 3D twist and optional angle to a 4x4 rigid body transformation in SE(3)
 
@@ -218,6 +250,35 @@ def twist_to_SE3(xi, theta = 1)
     Note: xi need not be a unit twist! (ie it may have some displacement information embedded into it)
 
     """
+
+    # YOUR CODE HERE
+    xi_flat = np.asarray(xi).flatten()
+    v = xi_flat[:3]
+    w = xi_flat[3:]
+    norm_w = np.linalg.norm(w)
+
+    g = np.eye(4)
+
+    if np.isclose(norm_w, 0.0):
+        # Pure translation
+        g[:3, 3] = v * theta
+    else:
+        # Screw motion / Pure rotation
+        w_unit = w / norm_w
+        total_angle = norm_w * theta
+        R = axis_angle_to_SO3(w_unit, total_angle)
+        w_hat = R3_to_so3(w)
+
+        # Closed-form translation formula:
+        # p = (1 / ||w||^2) * ((I - e^(w_hat*theta)) * (w x v) + w * w^T * v * theta)
+        term1 = (np.eye(3) - R) @ (w_hat @ v)
+        term2 = np.outer(w, w) @ v * theta
+        p = (term1 + term2) / (norm_w ** 2)
+
+        g[:3, :3] = R
+        g[:3, 3] = p
+
+    return g
 
 
 def se3_to_SE3(xi_hat, theta=1):
@@ -236,6 +297,8 @@ def se3_to_SE3(xi_hat, theta=1):
     """
 
     # YOUR CODE HERE
+    xi = se3_to_twist(xi_hat)
+    return twist_to_SE3(xi, theta)
 
 
 def forward_kinematics(xi, theta):
@@ -252,6 +315,15 @@ def forward_kinematics(xi, theta):
     """
 
     # YOUR CODE HERE
+    xi = np.asarray(xi)
+    theta = np.asarray(theta).flatten()
+    num_joints = xi.shape[1]
+
+    g = np.eye(4)
+    for i in range(num_joints):
+        g = g @ twist_to_SE3(xi[:, i], theta[i])
+
+    return g
 
 
 # ------------------------- Other Helper Functions -----------------------------
@@ -439,6 +511,16 @@ if __name__ == "__main__":
                             [-4.,  5.,  0.,  3.],
                             [ 0.,  0.,  0.,  0.]])
     array_func_test(twist_to_se3, func_args, ret_desired)
+
+    # Test twist_to_SE3()
+    arg1 = np.array([2.0, 1, 3, 5, 4, 2])
+    arg2 = 0.658
+    func_args = (arg1, arg2)
+    ret_desired = np.array([[ 0.4249,  0.8601, -0.2824,  1.7814],
+                            [ 0.2901,  0.1661,  0.9425,  0.9643],
+                            [ 0.8575, -0.4824, -0.179 ,  0.1978],
+                            [ 0.    ,  0.    ,  0.    ,  1.    ]])
+    array_func_test(twist_to_SE3, func_args, ret_desired)
 
     # Test se3_to_SE3()
     arg1 = np.array([[ 0., -2.,  4.,  2.],
