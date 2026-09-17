@@ -43,9 +43,7 @@ class NavClient(Node):
         self.initial_pose_pub = self.create_publisher(
             PoseWithCovarianceStamped, 'initialpose', 10)
 
-        # TODO 1: build the action client. which action type, and what is the
-        # server called? (ros2 action list)
-        self.client = None
+        self.client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
 
     def spin_for(self, seconds):
         end = self.get_clock().now() + Duration(seconds=seconds)
@@ -77,9 +75,7 @@ class NavClient(Node):
 
     def tag_transform(self):
         frame = f'ar_marker_{self.marker_id}'
-        # TODO 2: look the tag up in self.goal_frame. one call -- tf composes the
-        # whole chain from the map down to the marker for you.
-        tf = None
+        tf = self.tf_buffer.lookup_transform(self.goal_frame, frame, Time())
 
         # tf2 keeps handing back the last transform it saw. refuse a stale one.
         age = (self.get_clock().now() - Time.from_msg(tf.header.stamp)).nanoseconds / 1e9
@@ -95,9 +91,20 @@ class NavClient(Node):
         tag_y = tf.transform.translation.y
         robot_x, robot_y = self.robot_xy()
 
-        # TODO 3: return (goal_x, goal_y, goal_yaw) self.standoff metres short of the
-        # tag, facing it. 
-        raise NotImplementedError
+        dx = tag_x - robot_x
+        dy = tag_y - robot_y
+        dist = math.hypot(dx, dy)
+        if dist < 1e-3:
+            raise RuntimeError('robot is (almost) on top of the tag -- no heading to compute')
+
+        # unit vector from robot toward the tag
+        ux, uy = dx / dist, dy / dist
+
+        goal_x = tag_x - ux * self.standoff
+        goal_y = tag_y - uy * self.standoff
+        goal_yaw = math.atan2(dy, dx)
+
+        return goal_x, goal_y, goal_yaw
 
     def make_goal(self):
         x = self.get_parameter('x').value
@@ -108,9 +115,20 @@ class NavClient(Node):
         else:
             yaw = self.get_parameter('yaw').value
 
-        # TODO 4: build and return the PoseStamped. it needs a frame_id, a stamp, a
-        # position and an orientation. yaw_to_quat is given
-        raise NotImplementedError
+        pose = PoseStamped()
+        pose.header.frame_id = self.goal_frame
+        pose.header.stamp = self.get_clock().now().to_msg()
+        pose.pose.position.x = x
+        pose.pose.position.y = y
+        pose.pose.position.z = 0.0
+
+        qx, qy, qz, qw = yaw_to_quaternion(yaw)
+        pose.pose.orientation.x = qx
+        pose.pose.orientation.y = qy
+        pose.pose.orientation.z = qz
+        pose.pose.orientation.w = qw
+
+        return pose
 
     def send(self):
         goal = self.make_goal()
@@ -122,10 +140,13 @@ class NavClient(Node):
             self.get_logger().error('no navigate_to_pose action server')
             return False
 
-        # TODO 5: build the goal message, send it with on_feedback as the feedback
-        # callback, and hand the future it returns to on_goal_response. read
-        # on_goal_response below first -- it does the same trick a second time.
-        raise NotImplementedError
+        action_goal = NavigateToPose.Goal()
+        action_goal.pose = goal
+
+        send_future = self.client.send_goal_async(
+            action_goal, feedback_callback=self.on_feedback)
+        send_future.add_done_callback(self.on_goal_response)
+        return True
 
     def on_goal_response(self, future):
         handle = future.result()
@@ -138,8 +159,10 @@ class NavClient(Node):
         handle.get_result_async().add_done_callback(self.on_result)
 
     def on_feedback(self, msg):
-        # TODO 6: print how far Nav2 thinks it still has to go. 
-        raise NotImplementedError
+        self.get_logger().info(
+            f'distance remaining: {msg.feedback.distance_remaining:.2f} m',
+            throttle_duration_sec=1.0,
+        )
 
     def on_result(self, future):
         status = future.result().status
