@@ -1,5 +1,6 @@
 
 # here are a number of imports you may find helpful
+import math
 import time
 import rclpy
 from rclpy.action import ActionClient, ActionServer, CancelResponse, GoalResponse
@@ -44,7 +45,7 @@ class StraightLineServer(Node):
 
         self._action_server = ActionServer(
             self,
-            MoveStraight
+            MoveStraight,
             'move_straight',
             execute_callback=self.execute_callback,
             goal_callback=self.goal_callback,
@@ -55,11 +56,14 @@ class StraightLineServer(Node):
 
     def goal_callback(self, goal_request):
         self.get_logger().info('Received MoveStraight goal request')
-        return ...
+        if goal_request.max_step <= 0.0:
+            self.get_logger().warn('Rejecting goal: max_step must be positive')
+            return GoalResponse.REJECT
+        return GoalResponse.ACCEPT
 
     def cancel_callback(self, goal_handle: ServerGoalHandle):
         self.get_logger().info('Received cancel')
-        return ...
+        return CancelResponse.ACCEPT
 
     def _lookup_tool0_pose(self) -> Pose:
         """
@@ -67,8 +71,25 @@ class StraightLineServer(Node):
 
         this can fail!
         """
-        # hint: self._tf_buffer.lookup_transform
-        return ...
+        transform: TransformStamped = self._tf_buffer.lookup_transform(
+            'base_link',
+            'tool0',
+            rclpy.time.Time(),
+        )
+        pose = Pose()
+        pose.position.x = transform.transform.translation.x
+        pose.position.y = transform.transform.translation.y
+        pose.position.z = transform.transform.translation.z
+        pose.orientation = transform.transform.rotation
+        return pose
+
+    @staticmethod
+    def _position_distance(pos_a, pos_b) -> float:
+        return math.sqrt(
+            (pos_a.x - pos_b.x) ** 2
+            + (pos_a.y - pos_b.y) ** 2
+            + (pos_a.z - pos_b.z) ** 2
+        )
 
     def _ensure_controller(self) -> bool:
         """
@@ -89,8 +110,15 @@ class StraightLineServer(Node):
             return False
 
         req = SwitchController.Request()
-        # TODO: fill in `req`
-        
+        req.activate_controllers = ['scaled_joint_trajectory_controller']
+        req.deactivate_controllers = [
+            'freedrive_mode_controller',
+            'forward_position_controller',
+            'forward_velocity_controller',
+        ]
+        req.strictness = SwitchController.Request.BEST_EFFORT
+        req.activate_asap = True
+
         future = self._switch_cli.call_async(req)
         if not self._wait_future(future, timeout_sec=10.0):
             self.get_logger().error('Controller switch timed out')
@@ -131,18 +159,17 @@ class StraightLineServer(Node):
         
         req.group_name = 'ur_manipulator'
 
-        # TODO: fill these out!
         # check the docs: https://docs.ros.org/en/humble/p/moveit_msgs/srv/GetCartesianPath.html
-        req.link_name = ...
-        req.waypoints = ...
-        req.max_step = ...
-        
+        req.link_name = 'tool0'
+        req.waypoints = [target_pose]
+        req.max_step = max_step
+
         req.jump_threshold = 0.0
         req.avoid_collisions = True
-        
+
         fut = self._cart_cli.call_async(req)
-        
-        if not self._wait_future(future, timeout_sec=30.0):
+
+        if not self._wait_future(fut, timeout_sec=30.0):
             self.get_logger().error('Cartesian planning timed out')
             return None, 0.0, -1
 
@@ -176,9 +203,9 @@ class StraightLineServer(Node):
         if not self._exec_ac.wait_for_server(timeout_sec=5.0):
             return False, 'FollowJointTrajectory action server unavailable'
 
-        # TODO: construct the correct goal message for the FollowJointTrajectory action.
-        goal = ...
-        
+        goal = FollowJointTrajectory.Goal()
+        goal.trajectory = traj
+
         send_future = self._exec_ac.send_goal_async(goal)
         if not self._wait_future(send_future, timeout_sec=10.0):
             return False, 'Timed out waiting for trajectory goal acceptance'
@@ -189,10 +216,12 @@ class StraightLineServer(Node):
 
         result_future = exec_handle.get_result_async()
         while rclpy.ok() and not result_future.done():
-            # TODO: monitor `goal_handle.is_cancel_requested`.
-            # if a cancellation was requested, use exec_handle to cancel the goal.
-            ...
-        
+            if goal_handle.is_cancel_requested:
+                cancel_future = exec_handle.cancel_goal_async()
+                self._wait_future(cancel_future, timeout_sec=5.0)
+                break
+            time.sleep(0.01)
+
         try:
             result_future.result()
         except Exception as exc:
@@ -210,8 +239,8 @@ class StraightLineServer(Node):
 
     def execute_callback(self, goal_handle: ServerGoalHandle):
         goal = goal_handle.request
-        result = MoveStraight.Result() # TODO: construct empty Result message for this action type
-        feedback = MoveStraight.Feedback() # TODO: construct empty Feedback message for this action type
+        result = MoveStraight.Result()
+        feedback = MoveStraight.Feedback()
         result.planned_fraction = 0.0
         result.dist_to_go = 0.0
 
@@ -238,16 +267,17 @@ class StraightLineServer(Node):
         try:
             start_pose = self._lookup_tool0_pose()
         except TransformException as exc:
-            # TODO: handle this issue! what should we do if this
-            # lookup fails?  hint: look at how we dealt with a failure
-            # of _ensure_controller() above.
-            ...
+            result.success = False
+            result.message = f'Failed to look up tool0 pose: {exc}'
+            goal_handle.abort()
+            return result
 
         target_pose = Pose()
         target_pose.position = goal.target.position
         target_pose.orientation = start_pose.orientation
-        # TODO: update dist_to_go based on the above information!
-        result.dist_to_go = ...
+        result.dist_to_go = self._position_distance(
+            start_pose.position, target_pose.position
+        )
 
 
         ########## STEP 3 ##########
@@ -278,10 +308,19 @@ class StraightLineServer(Node):
         feedback.planned_fraction = planned_fraction
 
         if traj is None:
-            ... # TODO: handle total planning failure
+            result.success = False
+            result.message = f'Cartesian planning failed (error_code={err})'
+            goal_handle.abort()
+            return result
 
         if planned_fraction < 0.999:
-            ... # TODO: handle partial plannnig failure (it got stuck halfway ig)
+            result.success = False
+            result.message = (
+                f'Cartesian planning only achieved {planned_fraction:.3f} '
+                'of the requested path'
+            )
+            goal_handle.abort()
+            return result
 
         ########## STEP 4 ##########
         # execute the plan!
@@ -298,7 +337,9 @@ class StraightLineServer(Node):
 
         # get end pose so we can return how far we got
         current_pose = self._lookup_tool0_pose()
-        result.dist_to_go = ... # TODO: get distance to target
+        result.dist_to_go = self._position_distance(
+            current_pose.position, target_pose.position
+        )
   
         if not ok:
             result.success = False

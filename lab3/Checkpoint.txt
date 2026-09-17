@@ -1,0 +1,15 @@
+Checkpoint0: 
+1. Set up Vs code
+2. Quiz 
+3. Distrotbox
+
+Checkpoint1: 
+
+Testing: 
+
+ros2 run ur7e_utils enable_comms
+
+#validate safe traj (keep runnning it !!!!!!)
+ros2 run joint_control validate_trajectory
+# Back to tuck 
+ros2 run ur7e_utils tuck 

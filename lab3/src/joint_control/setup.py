@@ -30,6 +30,7 @@ setup(
     entry_points={
         "console_scripts": [
             "validate_trajectory = joint_control.validate_trajectory:main",
+            "joint_controller = joint_control.joint_controller:main",
         ],
     },
 )
