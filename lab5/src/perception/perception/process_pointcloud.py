@@ -11,6 +11,7 @@ from tf2_ros import Buffer, TransformListener, TransformException
 from rclpy.time import Time
 from tf2_sensor_msgs.tf2_sensor_msgs import do_transform_cloud
 from rcl_interfaces.msg import SetParametersResult
+from visualization_msgs.msg import Marker, MarkerArray
 
 # The table height next to the cube comes from the points in this ring around it
 # (just outside the cube, so none of the cube's own points get in)
@@ -26,6 +27,8 @@ class RealSensePCSubscriber(Node):
         self.min_z = float(self.declare_parameter('min_z', -0.18).value)
         self.max_z = float(self.declare_parameter('max_z', -0.15).value)
 
+        self.bounds_pub = self.create_publisher(MarkerArray, '/filter_planes', 1)
+
         # Part 5: the cube is black, so its points should be dark (HSV value at most this)
         self.cube_max_v = int(self.declare_parameter('cube_max_v', 80).value)
 
@@ -37,6 +40,8 @@ class RealSensePCSubscriber(Node):
         self.tape_v_min = int(self.declare_parameter('tape_v_min', 50).value)
         self.tape_min_points = int(self.declare_parameter('tape_min_points', 30).value)
         self.add_on_set_parameters_callback(self._on_parameter_update)
+
+        
 
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
@@ -75,6 +80,9 @@ class RealSensePCSubscriber(Node):
 
         transformed_cloud = do_transform_cloud(_______, _______) # TODO: look what do_transform_cloud takes in and outputs
 
+
+        self.publish_filter_planes(transformed_cloud.header)
+        
         raw_points = pc2.read_points(
             transformed_cloud,
             field_names=('x', 'y', 'z'),
@@ -166,6 +174,52 @@ class RealSensePCSubscriber(Node):
         # (a PointStamped in base_link, don't forget the header)
         tape_pose = _______
         self.tape_pose_pub.publish(tape_pose)
+
+    def publish_filter_planes(self, header):
+        marker_array = MarkerArray()
+
+        def create_plane(marker_id, x, y, z, scale_x, scale_y, scale_z, r, g, b):
+            m = Marker()
+            m.header = header
+            m.ns = "filter_bounds"
+            m.id = marker_id
+            m.type = Marker.CUBE
+            m.action = Marker.ADD
+           
+            m.pose.position.x = float(x)
+            m.pose.position.y = float(y)
+            m.pose.position.z = float(z)
+            m.pose.orientation.w = 1.0
+            
+            m.scale.x = float(scale_x)
+            m.scale.y = float(scale_y)
+            m.scale.z = float(scale_z)
+            
+            m.color.r = float(r)
+            m.color.g = float(g)
+            m.color.b = float(b)
+            m.color.a = 0.4
+            
+            return m
+
+        
+        span = 2.0
+        thickness = 0.002
+
+        # minz
+        marker_array.markers.append(
+            create_plane(0, 0.0, 0.0, self.min_z, span, span, thickness, 1.0, 0.0, 0.0))
+        
+        # maxz
+        marker_array.markers.append(
+            create_plane(1, 0.0, 0.0, self.max_z, span, span, thickness, 0.0, 1.0, 0.0))
+        
+        # maxy
+        marker_array.markers.append(
+            create_plane(2, 0.0, self.max_y, 0.0, span, thickness, span, 0.0, 0.0, 1.0))
+
+        self.bounds_pub.publish(marker_array)
+
 
     def _on_parameter_update(self, params):
         new_min_z = self.min_z
