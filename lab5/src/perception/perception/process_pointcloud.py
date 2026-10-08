@@ -156,8 +156,8 @@ class RealSensePCSubscriber(Node):
 
         # TODO: Publish the cube pose message with the cube position information
         cube_pose = PointStamped()
-        cube_pose.header.frame_id = self.target_frame          
-        cube_pose.header.stamp = transformed_cloud.header.stamp  
+        cube_pose.header.frame_id = self.target_frame          # base_link
+        cube_pose.header.stamp = transformed_cloud.header.stamp  # 跟點雲同一個時間
         cube_pose.point.x = cube_x
         cube_pose.point.y = cube_y
         cube_pose.point.z = float(cube_z)
@@ -178,14 +178,19 @@ class RealSensePCSubscriber(Node):
         # TODO (Part 5): convert rgb to HSV with cv2.cvtColor. cvtColor works on images,
         # so reshape to (N, 1, 3) first and back to (N, 3) after. Careful, these colors
         # are in RGB order, not the BGR order OpenCV usually uses.
-        hsv = None  # replace this
+        # (N, 3) -> (N, 1, 3) 當成一張 N x 1 的圖，轉完再變回 (N, 3)
+        hsv = cv2.cvtColor(rgb.reshape(-1, 1, 3), cv2.COLOR_RGB2HSV).reshape(-1, 3)
         return hsv
 
     def find_tape(self, points_base, hsv, header):
         # TODO (Part 5): keep the points whose color is in the tape's HSV range
         # (tape_h_min <= H <= tape_h_max, S >= tape_s_min, V >= tape_v_min).
         # The tape is on the table, so also drop anything above max_z or past max_y.
-        tape_points = _______
+        H, S, V = hsv[:, 0], hsv[:, 1], hsv[:, 2]
+        color_mask = ((H >= self.tape_h_min) & (H <= self.tape_h_max) &
+                      (S >= self.tape_s_min) & (V >= self.tape_v_min))
+        pos_mask = (points_base[:, 2] <= self.max_z) & (points_base[:, 1] <= self.max_y)
+        tape_points = points_base[color_mask & pos_mask]
 
         if len(tape_points) < self.tape_min_points:
             return
@@ -194,7 +199,12 @@ class RealSensePCSubscriber(Node):
 
         # TODO (Part 5): publish the centroid of the tape points on /tape_pose
         # (a PointStamped in base_link, don't forget the header)
-        tape_pose = _______
+        tape_pose = PointStamped()
+        tape_pose.header = header  
+        center = np.median(tape_points, axis=0)
+        tape_pose.point.x = float(center[0])
+        tape_pose.point.y = float(center[1])
+        tape_pose.point.z = float(center[2])
         self.tape_pose_pub.publish(tape_pose)
 
     def publish_filter_planes(self, header):

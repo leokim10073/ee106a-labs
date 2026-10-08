@@ -75,7 +75,14 @@ def generate_launch_description():
         )}],
     )
 
-    ik_planner_node = _______
+    # IK test node (runs the checks in ik.py's main())
+    # Don't name it 'ik_planner': main.py creates its own IKPlanner node with that name
+    ik_planner_node = Node(
+        package='planning',
+        executable='ik',
+        name='ik_test',
+        output='screen'
+    )
 
     # -------------------------
     # Global shutdown on any process exit
@@ -97,6 +104,7 @@ def generate_launch_description():
         planning_tf_node,
         moveit_launch,
         planning_scene_obstacles_node,
+        ik_planner_node,  # last, so TF and MoveIt are already starting up
 
         # Global handler (keep at end)
         shutdown_on_any_exit,

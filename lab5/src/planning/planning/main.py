@@ -48,6 +48,7 @@ class UR7e_CubeGrasp(Node):
         self.cube_pose = None
         self.cube_height = None
         self.grasp_height = None  # how far above the bottom of the cube we grabbed it
+        self.held_cube_height = None
         self.current_plan = None
         self.joint_state = None
         self.start_joints = None  # where you free drove the robot to, recorded on startup
@@ -93,13 +94,23 @@ class UR7e_CubeGrasp(Node):
         # To understand how the queue works, refer to the execute_jobs() function below.
         # -----------------------------------------------------------
 
+        cube_top = z + h / 2
+        table_z = z - h / 2
+        self.held_cube_height = h
+
         # 1) Move to Pre-Grasp Position (gripper above the cube)
         '''
         The fingertips should start PRE_GRASP_CLEARANCE above the top of the cube.
         Remember the IK target is wrist_3_link, which is GRIPPER_LENGTH above the fingertips.
         '''
-        ...
-        self.job_queue.append(...)
+        pre_grasp_tip_z = cube_top + PRE_GRASP_CLEARANCE
+        pre_grasp_js = self.ik_planner.compute_ik(
+            self.joint_state, x, y, pre_grasp_tip_z + GRIPPER_LENGTH)
+        if pre_grasp_js is None:
+            self.get_logger().error('No IK for pre-grasp, will try again with the next cube pose')
+            self.cube_pose = None
+            return
+        self.job_queue.append(pre_grasp_js)
 
         # 2) Move to Grasp Position (lower the gripper to the cube)
         '''
@@ -107,17 +118,28 @@ class UR7e_CubeGrasp(Node):
         than TABLE_CLEARANCE to the table. Save how far above the bottom of the cube the
         fingertips are in self.grasp_height, you'll need it to put the cube down.
         '''
-        self.grasp_height = ...
+        grasp_tip_z = max(z, table_z + TABLE_CLEARANCE)
+        self.grasp_height = grasp_tip_z - table_z
+        grasp_js = self.ik_planner.compute_ik(
+            pre_grasp_js, x, y, grasp_tip_z + GRIPPER_LENGTH)
+        if grasp_js is None:
+            self.get_logger().error('No IK for grasp, will try again with the next cube pose')
+            self.job_queue.clear()
+            self.cube_pose = None
+            return
+        self.job_queue.append(grasp_js)
 
         # 3) Close the gripper. See job_queue entries defined in init above for how to add this action.
-        ...
+        self.job_queue.append('toggle_grip')
 
         # 4) Move back to Pre-Grasp Position
+        self.job_queue.append(pre_grasp_js)
 
         # 5) Go back to the start pose (self.start_joints) so the camera can see the table again
+        self.job_queue.append(self.start_joints)
 
         # 6) Look for the tape. plan_place() gets called once we have a fresh /tape_pose
-        ...
+        self.job_queue.append('find_tape')
 
         self.execute_jobs()
 
@@ -142,16 +164,36 @@ class UR7e_CubeGrasp(Node):
         # cube doesn't get pushed into the table.
         # -----------------------------------------------------------
 
+        table_z = tape_pose.point.z
+        h = self.held_cube_height
+
         # 1) Move above the tape (so the bottom of the cube clears the table)
-        ...
+        above_tip_z = table_z + h + PRE_GRASP_CLEARANCE
+        above_js = self.ik_planner.compute_ik(
+            self.joint_state, x, y, above_tip_z + GRIPPER_LENGTH)
+        if above_js is None:
+            self.get_logger().error('No IK above the tape')
+            return
+        self.job_queue.append(above_js)
 
         # 2) Lower the cube down onto the tape
+        place_tip_z = table_z + self.grasp_height + TABLE_CLEARANCE
+        place_js = self.ik_planner.compute_ik(
+            above_js, x, y, place_tip_z + GRIPPER_LENGTH)
+        if place_js is None:
+            self.get_logger().error('No IK to lower onto the tape')
+            self.job_queue.clear()
+            return
+        self.job_queue.append(place_js)
 
         # 3) Open the gripper
+        self.job_queue.append('toggle_grip')
 
         # 4) Move back up
+        self.job_queue.append(above_js)
 
         # 5) Go back to the start pose
+        self.job_queue.append(self.start_joints)
 
         self.execute_jobs()
 
