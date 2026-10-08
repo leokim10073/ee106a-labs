@@ -24,10 +24,20 @@ class ConstantTransformPublisher(Node):
         # ------------------------------------------
         # TODO: Fill out TransformStamped message
         # ------------------------------------------
+        self.transform.header.frame_id = 'wrist_3_link'
+        self.transform.child_frame_id = 'camera_depth_optical_frame'
 
-        # Convert rotation matrix to quaternion (x, y, z, w)
+        self.transform.transform.translation.x = float(G[0, 3])
+        self.transform.transform.translation.y = float(G[1, 3])
+        self.transform.transform.translation.z = float(G[2, 3])
 
-        # Populate TransformStamped
+        r = R.from_matrix(G[:3, :3])
+        q = r.as_quat()
+
+        self.transform.transform.rotation.x = float(q[0])
+        self.transform.transform.rotation.y = float(q[1])
+        self.transform.transform.rotation.z = float(q[2])
+        self.transform.transform.rotation.w = float(q[3])
 
         self.get_logger().info(f"Broadcasting transform:\n{G}\nQuaternion: {q}")
 
