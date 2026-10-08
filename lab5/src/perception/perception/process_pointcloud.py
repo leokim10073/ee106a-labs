@@ -71,14 +71,17 @@ class RealSensePCSubscriber(Node):
         # Filter points between z coords between min_z and max_z and max_y
         # Call the numpy array filtered_points
 
-        source_frame = _______ # TODO: Fill in the source frame based on what you implemented in your static TF broadcaster 
+        # 點雲本身就是在 camera_depth_optical_frame（也就是你 static TF broadcaster 的 child frame）
+        source_frame = 'camera_depth_optical_frame'
         try:
-            tf = self.tf_buffer.lookup_transform(_______, _______, Time()) # TODO: the entire tf lookup params should be filled in
+            # lookup_transform(target, source, time)：得到「把 source 座標轉到 target」的 transform
+            tf = self.tf_buffer.lookup_transform(self.target_frame, source_frame, Time())
         except TransformException as ex:
             self.get_logger().warn(f'Could not transform {source_frame} to {self.target_frame}: {ex}')
             return
 
-        transformed_cloud = do_transform_cloud(_______, _______) # TODO: look what do_transform_cloud takes in and outputs
+        # do_transform_cloud(cloud, transform) -> 回傳一個新的 PointCloud2，header.frame_id 變成 base_link
+        transformed_cloud = do_transform_cloud(msg, tf)
 
 
         self.publish_filter_planes(transformed_cloud.header)
@@ -104,7 +107,13 @@ class RealSensePCSubscriber(Node):
 
         # TODO: Create masks based on the specified min, max y and z parameters above in order to filter points
         # TODO (Part 5): the cube is black, so once you have hsv, also only keep points with V <= self.cube_max_v
-        filtered_points = _______
+        x = points_base[:, 0]
+        y = points_base[:, 1]
+        z = points_base[:, 2]
+        mask = (z >= self.min_z) & (z <= self.max_z) & (y <= self.max_y)
+        if hsv is not None:
+            mask &= hsv[:, 2] <= self.cube_max_v
+        filtered_points = points_base[mask]
 
         if filtered_points.size == 0:
             self.get_logger().warn(
@@ -119,15 +128,23 @@ class RealSensePCSubscriber(Node):
         self.filtered_points_pub.publish(filtered_cloud)
 
         # TODO: Compute cube position in base_link frame using filtered_points.
-        cube_x = _______
-        cube_y = _______
+        cube_x = float(np.median(filtered_points[:, 0]))
+        cube_y = float(np.median(filtered_points[:, 1]))
 
         # TODO: Estimate how tall the cube is. For the top of the cube, use one of the
         # highest filtered points (a high percentile is less noisy than the max). For the
         # table, use the points (from points_base) that are between TABLE_RING_MIN and
         # TABLE_RING_MAX away from the cube's center in x and y.
-        cube_top = _______
-        table_z = _______
+        cube_top = float(np.percentile(filtered_points[:, 2], 95))
+
+        dist_xy = np.hypot(points_base[:, 0] - cube_x, points_base[:, 1] - cube_y)
+        ring_mask = (dist_xy >= TABLE_RING_MIN) & (dist_xy <= TABLE_RING_MAX)
+        ring_z = points_base[ring_mask, 2]
+        if ring_z.size == 0:
+            self.get_logger().warn('No table points in the ring around the cube',
+                                   throttle_duration_sec=2.0)
+            return
+        table_z = float(np.median(ring_z))
 
         cube_height = cube_top - table_z
         cube_z = table_z + cube_height / 2  # middle of the cube
@@ -138,7 +155,12 @@ class RealSensePCSubscriber(Node):
         self.cube_height_pub.publish(Float32(data=cube_height))
 
         # TODO: Publish the cube pose message with the cube position information
-        cube_pose = _______
+        cube_pose = PointStamped()
+        cube_pose.header.frame_id = self.target_frame          
+        cube_pose.header.stamp = transformed_cloud.header.stamp  
+        cube_pose.point.x = cube_x
+        cube_pose.point.y = cube_y
+        cube_pose.point.z = float(cube_z)
 
         self.cube_pose_pub.publish(cube_pose)
 

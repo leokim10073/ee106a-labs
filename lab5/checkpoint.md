@@ -17,3 +17,20 @@ xdg-open frames_*.pdf
 ```
 
 ### Checkpoint 2
+```bash
+
+ros2 run perception process_pointcloud
+rviz2 
+    (set fixframe to baselink)
+    (Add /filter_planes、/filtered_points、/cube_pose topic)
+
+Adjustment:    
+ros2 param set /realsense_pc_subscriber min_z -0.17
+ros2 param set /realsense_pc_subscriber max_z -0.10
+
+```
+
+1. plane normal to along +z vector
+
+
+
