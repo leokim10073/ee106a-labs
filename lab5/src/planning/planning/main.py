@@ -24,7 +24,7 @@ TAPE_SETTLE_SEC = 1.0  # wait this long after getting back to the start pose bef
 
 # How far below wrist_3_link the fingertips are. Measure this on your gripper!
 # The IK targets are for wrist_3_link, so add this to where you want the fingertips to be.
-GRIPPER_LENGTH = 0.14
+GRIPPER_LENGTH = 0.05
 PRE_GRASP_CLEARANCE = 0.05  # how far above the cube the fingertips start
 TABLE_CLEARANCE = 0.01  # never bring the fingertips (or the held cube) closer than this to the table
 

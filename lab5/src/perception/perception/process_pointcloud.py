@@ -71,7 +71,6 @@ class RealSensePCSubscriber(Node):
         # Filter points between z coords between min_z and max_z and max_y
         # Call the numpy array filtered_points
 
-        # 點雲本身就是在 camera_depth_optical_frame（也就是你 static TF broadcaster 的 child frame）
         source_frame = 'camera_depth_optical_frame'
         try:
             # lookup_transform(target, source, time)：得到「把 source 座標轉到 target」的 transform
@@ -157,7 +156,7 @@ class RealSensePCSubscriber(Node):
         # TODO: Publish the cube pose message with the cube position information
         cube_pose = PointStamped()
         cube_pose.header.frame_id = self.target_frame          # base_link
-        cube_pose.header.stamp = transformed_cloud.header.stamp  # 跟點雲同一個時間
+        cube_pose.header.stamp = transformed_cloud.header.stamp  
         cube_pose.point.x = cube_x
         cube_pose.point.y = cube_y
         cube_pose.point.z = float(cube_z)
@@ -178,7 +177,6 @@ class RealSensePCSubscriber(Node):
         # TODO (Part 5): convert rgb to HSV with cv2.cvtColor. cvtColor works on images,
         # so reshape to (N, 1, 3) first and back to (N, 3) after. Careful, these colors
         # are in RGB order, not the BGR order OpenCV usually uses.
-        # (N, 3) -> (N, 1, 3) 當成一張 N x 1 的圖，轉完再變回 (N, 3)
         hsv = cv2.cvtColor(rgb.reshape(-1, 1, 3), cv2.COLOR_RGB2HSV).reshape(-1, 3)
         return hsv
 

@@ -30,6 +30,7 @@ ros2 param set /realsense_pc_subscriber max_z -0.10
 ```
 
 1. plane normal to along +z vector
+2.
 
 
 

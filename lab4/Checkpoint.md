@@ -73,15 +73,14 @@ ros2 run turtlebot_controller square_drive
 ## 3. Checkpoint2: 
 ```bash
 ros2 launch turtlebot_controller slam_launch.py
-ros2 run nav2_map_server map_saver_cli -f ~/ros_workspaces/lab4/slam_map
+ros2 run nav2_map_server map_saver_cli -f ~/ee106a-labs/lab4/slam_map
 ```
-
 ## 4. Checkpoint3: 
 ```bash
-ros2 launch turtlebot3_navigation2 navigation2.launch.py map:=$HOME/ros_workspaces/lab4/slam_map.yaml
+ros2 launch turtlebot3_navigation2 navigation2.launch.py map:=$HOME/ee106a-labs/lab4/slam_map.yaml
 ros2 launch turtlebot_controller tag_launch.py
 ros2 topic echo /aruco_markers
-ros2 run tf2_ros tf2_echo camera ar_marker_<ID>
+ros2 run tf2_ros tf2_echo camera ar_marker_8
 ## Just Test Nav Client
 ros2 run turtlebot_controller nav_client --ros-args -p x:=1.5 -p y:=0.0
 ## Pure Navigate to tag
