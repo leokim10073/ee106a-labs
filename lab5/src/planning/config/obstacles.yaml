@@ -1,0 +1,33 @@
+# Lab workstation obstacles for MoveIt planning scene.
+# world_obstacles: box centers in frame_id (meters)
+# attached_obstacles: box centers relative to link_name
+#
+# Tune in RViz (MotionPlanning -> Scene Objects), then update this file.
+
+frame_id: base_link
+
+world_obstacles:
+  - id: table
+    size: [2.0, 2.5, 0.05]
+    center: [0.0, 0.00, -0.3]
+
+  - id: wall
+    size: [2.00, 0.50, 3.00]
+    center: [0.00, -1.0, 0.5]
+
+  - id: computer
+    size: [0.35, 0.25, 1.0]
+    center: [0.10, 1.0, 0.02]
+
+attached_obstacles:
+  - id: camera_mount
+    link_name: wrist_3_link
+    size: [0.10, 0.08, 0.06]
+    center: [0.025, 0.10, 0.00]
+    touch_links: [wrist_3_link, wrist_2_link, wrist_1_link, tool0]
+
+  - id: gripper
+    link_name: wrist_3_link
+    size: [0.065, 0.065, 0.17]
+    center: [0.00, 0.00, 0.1]
+    touch_links: [wrist_3_link, wrist_2_link, wrist_1_link, tool0]
