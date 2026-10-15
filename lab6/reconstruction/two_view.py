@@ -81,7 +81,7 @@ def relative_pose(E, x1, x2, K):
     # raise NotImplementedError('TODO 5.2')
     count, R, t, mask = cv2.recoverPose(E, x1, x2, K)
     pose_mask = mask.ravel().astype(bool)
-    return R, t, pose_mask
+    return R, t.ravel(), pose_mask 
 
 
 def triangulate(K, R, t, x1, x2):
@@ -92,6 +92,7 @@ def triangulate(K, R, t, x1, x2):
     # depth (z) of each point in both cameras
     # raise NotImplementedError('TODO 5.3')
     # Define projection matrices
+    t = t.reshape(3, 1)
     P1 = K @ np.hstack([np.eye(3), np.zeros((3, 1))])
     P2 = K @ np.hstack([R, t])
 
