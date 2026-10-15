@@ -31,27 +31,46 @@ def estimate_fundamental(x1, x2, threshold_px=RANSAC_THRESHOLD_PX):
     # ransacReprojThreshold=threshold_px and confidence=0.999. the mask it
     # gives back is (N, 1) of 0s and 1s. F can come back as None (or not 3x3)
     # if it fails.
-    raise NotImplementedError('TODO 4.1')
+    # raise NotImplementedError('TODO 4.1')
+    F, mask = cv2.findFundamentalMat(
+        x1, 
+        x2, 
+        method=cv2.FM_RANSAC, 
+        ransacReprojThreshold=threshold_px, 
+        confidence=0.999
+    )
+
+    if F is None or F.shape != (3, 3) or mask is None:
+        return None, np.zeros(len(x1), dtype=bool)
+
+    inliers = mask.ravel().astype(bool)
+    return F, inliers
 
 
 def epipolar_lines(F, points, image_index):
     # lines (a, b, c) in the *other* image for points in image 1 or 2,
     # scaled so a^2 + b^2 = 1. returns (N, 3)
     # TODO 4.2: cv2.computeCorrespondEpilines. takes (N, 1, 2), gives back (N, 1, 3)
-    raise NotImplementedError('TODO 4.2')
+    # raise NotImplementedError('TODO 4.2')
+    lines = cv2.computeCorrespondEpilines(points.reshape(-1, 1, 2), image_index, F)
+    return lines.reshape(-1, 3)
 
 
 def epipolar_distances(F, x1, x2):
     # TODO 4.3: how far (in pixels) each x2 is from the epipolar line of its x1.
     # since a^2 + b^2 = 1 the distance is just |a*x + b*y + c|
-    raise NotImplementedError('TODO 4.3')
+    # raise NotImplementedError('TODO 4.3')
+    lines = epipolar_lines(F, x1, image_index=1)
+    distances = np.abs(lines[:, 0] * x2[:, 0] + lines[:, 1] * x2[:, 1] + lines[:, 2])
+    return distances
 
 
 # Section 5
 
 def essential_from_fundamental(F, K):
     # TODO 5.1: E = K^T F K (same camera for both images)
-    raise NotImplementedError('TODO 5.1')
+    # raise NotImplementedError('TODO 5.1')
+    return K.T @ F @ K
 
 
 def relative_pose(E, x1, x2, K):
@@ -59,7 +78,10 @@ def relative_pose(E, x1, x2, K):
     # recoverPose kept
     # TODO 5.2: cv2.recoverPose(E, x1, x2, K) returns (count, R, t, mask).
     # t comes back as (3, 1) and the mask as (N, 1)
-    raise NotImplementedError('TODO 5.2')
+    # raise NotImplementedError('TODO 5.2')
+    count, R, t, mask = cv2.recoverPose(E, x1, x2, K)
+    pose_mask = mask.ravel().astype(bool)
+    return R, t, pose_mask
 
 
 def triangulate(K, R, t, x1, x2):
@@ -68,19 +90,41 @@ def triangulate(K, R, t, x1, x2):
     # TODO 5.3: P1 = K [I | 0], P2 = K [R | t]. cv2.triangulatePoints wants the
     # points as (2, N) and gives you homogeneous (4, N) back. then check the
     # depth (z) of each point in both cameras
-    raise NotImplementedError('TODO 5.3')
+    # raise NotImplementedError('TODO 5.3')
+    # Define projection matrices
+    P1 = K @ np.hstack([np.eye(3), np.zeros((3, 1))])
+    P2 = K @ np.hstack([R, t])
+
+    # cv2.triangulatePoints wants the points as (2, N) and gives you homogeneous (4, N) back.
+    coord_4d = cv2.triangulatePoints(P1, P2, x1.T, x2.T)
+    
+    # Convert from homogeneous to 3D Euclidean coordinates (N, 3)
+    camera1_3d = (coord_4d[:3] / coord_4d[3]).T
+
+    # Calculate 3D points in camera 2's reference frame: X2 = R @ X1 + t
+    camera2_3d = (R @ camera1_3d.T + t).T
+
+    # Check if points have positive depth (z > 0) in both views
+    in_front = (camera1_3d[:, 2] > 0) & (camera2_3d[:, 2] > 0)
+
+    return camera1_3d, in_front
 
 
 def camera_pose_in_map(T_map_base):
     # TODO 5.4: camera pose in the map (4x4). you have the robot's pose from
     # SLAM, and T_BASE_CAM (in common.py) is where the camera is on the robot
-    raise NotImplementedError('TODO 5.4')
+    # raise NotImplementedError('TODO 5.4')
+    return T_map_base @ T_BASE_CAM
 
 
 def metric_scale(t_unit, baseline_m):
     # TODO 5.5: E only gives you the direction of t. baseline_m is how far apart
     # the cameras actually were according to SLAM
-    raise NotImplementedError('TODO 5.5')
+    # raise NotImplementedError('TODO 5.5')
+    t_norm = np.linalg.norm(t_unit)
+    if t_norm < 1e-8:
+        return 0.0
+    return baseline_m / t_norm
 
 
 LINE_COLORS = [(230, 25, 75), (60, 180, 75), (255, 225, 25), (0, 130, 200), (245, 130, 48),

@@ -29,7 +29,11 @@ def board_points(cols, rows, square):
     # (0,0,0), (square,0,0), ..., then (0,square,0), ...
     # TODO 1.1: build the grid. np.mgrid[0:cols, 0:rows] gives you every
     # (col, row) pair, you just need to get it into the right order.
-    raise NotImplementedError('TODO 1.1')
+    # raise NotImplementedError('TODO 1.1')
+    points = np.zeros((rows * cols, 3), np.float32)
+    grid = np.mgrid[0:cols, 0:rows].T.reshape(-1, 2)
+    points[:, :2] = grid * square
+    return points
 
 
 def find_corners(gray, cols, rows):
@@ -42,7 +46,13 @@ def find_corners(gray, cols, rows):
     # flags=flags. if it finds the board, refine with cv2.cornerSubPix using
     # SUBPIX_WINDOW, a zero zone of (-1, -1), and SUBPIX_CRITERIA.
     # the OpenCV calibration tutorial has an example of both.
-    raise NotImplementedError('TODO 1.2')
+    # raise NotImplementedError('TODO 1.2')
+    ret, corners = cv2.findChessboardCorners(gray, (cols, rows), flags=flags)
+    if not ret:
+        return None
+
+    corners_subpix = cv2.cornerSubPix(gray, corners, SUBPIX_WINDOW, (-1, -1), SUBPIX_CRITERIA)
+    return corners_subpix.reshape(-1, 2)
 
 
 def calibrate(object_points, image_points, image_size):
@@ -52,7 +62,14 @@ def calibrate(object_points, image_points, image_size):
     # should return rms, K, dist (flattened), rvecs, tvecs
     # TODO 1.3: cv2.calibrateCamera. pass None for the starting K and dist.
     # careful, it wants the image points shaped (N, 1, 2)
-    raise NotImplementedError('TODO 1.3')
+    # raise NotImplementedError('TODO 1.3')
+    points_reshaped = [point.reshape(-1, 1, 2) for point in image_points]
+    
+    rms, K, dist, rvecs, tvecs = cv2.calibrateCamera(
+        object_points, points_reshaped, image_size, None, None
+    )
+    
+    return rms, K, dist.ravel(), rvecs, tvecs
 
 
 # Everything below here just draws pictures of the result.
