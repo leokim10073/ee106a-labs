@@ -192,7 +192,8 @@ class ImageSubscriber(Node):
     def camera_info_callback(self, msg):
         # TODO: Store fx, fy, cx, cy from the K matrix as self.fx, self.fy,
         #       self.cx, self.cy. K is a flat row-major 9-element array.
-        self.get_logger().info('Received Camera Info')
+        self.get_logger().info('Received Camera Info',
+                               throttle_duration_sec=10.0)
 
     def _log_detections(self, result):
         found = sorted({self.model.names[int(c)] for c in result.boxes.cls})

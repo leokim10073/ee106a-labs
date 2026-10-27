@@ -135,7 +135,7 @@ class ArucoNode(rclpy.node.Node):
         )
         self.get_logger().info(f"Marker size: {self.marker_size}")
         
-        self.marker_size_map = {1: 0.15, 2: 0.15, 3: 0.15, 4: 0.15, 5: 0.15, 11: 0.15, 
+        self.marker_size_map = {1: 0.05, 2: 0.05, 3: 0.05, 4: 0.05, 5: 0.05, 11: 0.15, 
                                 6: 0.15, 7: 0.15, 8: 0.15, 9: 0.15, 10: 0.15}
         self.get_logger().info(f"Marker size map for marker ids is: {self.marker_size_map}")
 
