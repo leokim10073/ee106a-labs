@@ -1,0 +1,19 @@
+# Lab 8 virtual environment.
+#
+# Staff build this once; students only activate it. It MUST be created with
+# --system-site-packages, or rclpy, cv_bridge and the ROS message packages
+# are hidden from it -- none of those are installable from pip.
+#
+#   python3 -m venv --system-site-packages ~ee106a/venvs/lab8
+#   source ~ee106a/venvs/lab8/bin/activate
+#   pip install -r requirements.txt
+#
+# Sanity check afterwards:
+#   python3 -c "import rclpy, cv_bridge, transforms3d; from ultralytics import YOLO; print('ok')"
+#
+# Students activate it in EVERY lab 8 terminal -- the controller needs
+# transforms3d and matplotlib, not just the perception nodes.
+
+ultralytics
+transforms3d
+matplotlib
